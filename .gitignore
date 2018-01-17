@@ -3,3 +3,14 @@
 ################################################################################
 
 /.vs/WindowsApp/v15
+/.vs
+/App_BAL/bin
+/App_BAL/obj
+/App_UI/bin
+/App_UI/obj
+/App_Wrapper/bin
+/App_Wrapper/obj
+/CustomServerControls/obj
+/CustomServerControls/bin
+/packages/Newtonsoft.Json.10.0.3
+/POSInstaller/Debug

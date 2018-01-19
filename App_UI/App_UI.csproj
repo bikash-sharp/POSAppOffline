@@ -190,6 +190,12 @@
     <Compile Include="Forms\PrinterSetup.Designer.cs">
       <DependentUpon>PrinterSetup.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\Processing.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\Processing.Designer.cs">
+      <DependentUpon>Processing.cs</DependentUpon>
+    </Compile>
     <Compile Include="NativeMethods.cs" />
     <Compile Include="PosExtensions.cs" />
     <Compile Include="Program.cs" />
@@ -259,6 +265,9 @@
     <EmbeddedResource Include="Forms\PrinterSetup.resx">
       <DependentUpon>PrinterSetup.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Forms\Processing.resx">
+      <DependentUpon>Processing.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <SubType>Designer</SubType>
@@ -320,7 +329,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="bestari.accdb">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Bestari.ico" />
     <Content Include="POS.ico" />

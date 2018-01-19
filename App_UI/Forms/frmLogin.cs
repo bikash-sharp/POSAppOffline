@@ -46,49 +46,148 @@ namespace BestariTerrace.Forms
                 this.rectangleShape3.BorderColor = Color.FromArgb(225, 225, 225);
                 try
                 {
-                    //var rowCount = 0;
-                    //using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
-                    //{
-                    //    OConn.Open();
-                    //    OleDbCommand cmd = new OleDbCommand("SELECT COUNT(*) FROM employees", OConn);
-                    //    int.TryParse(cmd.ExecuteScalar()+"", out rowCount);
-                    //    //OleDbCommand cmd = new OleDbCommand("SELECT password FROM employees WHERE user = '" + txtUserName.Text.Trim() + "'", OConn);
-                    //}
-                    //if(rowCount > 0)
-                    //{
-                    //    //try Login
-                    //}
-                    //else
-                    //{
-                    //    //Show Message for Sync.
-                    //    //Sync all api altogether.
-                    //}
-
-                    string URL = Program.BaseUrl;
-                    string LoginUrl = URL + "/login?username=" + txtUserName.Text.Trim() + "&password=" + txtPassword.Text.Trim();
-
-                    var GetLoginDetails = DataProviderWrapper.Instance.GetData(LoginUrl, Verbs.GET, "");
-                    JavaScriptSerializer serializer = new JavaScriptSerializer();
-                    LoginCL result = serializer.Deserialize<LoginCL>(GetLoginDetails);
-
-                    //if(txtUserName.Text == "Admin" && txtPassword.Text == "12345")
-                    if (result.message == "success")
+                    var rowCount = 0;
+                    using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
                     {
-                        this.Hide();
-                        Program.IsLogined = true;
-                        Program.SessionId = result.sessionid;
-                        Program.OutletType = result.outlet_Type;
-                        Program.Token = result.data;
-                        //Form Opened Directly
-                        if(!IsMain)
+                        OConn.Open();
+                        OleDbCommand cmd = new OleDbCommand("SELECT COUNT(*) FROM employees", OConn);
+                        int.TryParse(cmd.ExecuteScalar() + "", out rowCount);
+
+                    }
+                    if (rowCount > 0)
+                    {
+                        //try Login
+                        string dbPassword = string.Empty;
+                        DataSet ds = new DataSet();
+
+                        using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
                         {
-                            frmMain _main = new frmMain();
-                            _main.ShowDialog();
+                            OConn.Open();
+                            OleDbDataAdapter da = new OleDbDataAdapter("SELECT * FROM employees WHERE username = '" + txtUserName.Text.Trim() + "'", OConn);
+                            da.Fill(ds);
+                        }
+                        //Get Data From DB
+                        if (ds.Tables.Count > 0)
+                        {
+                            DataTable dt = ds.Tables[0];
+                            //Fetch Details 
+                            if (dt.Rows.Count > 0)
+                            {
+                                App_Off_BAL.EmployeeCL emp = new App_Off_BAL.EmployeeCL();
+
+                                DataRow dtRow = dt.Rows[0];
+                                emp.id = dtRow["id"] + "";
+                                emp.username = dtRow["username"] + "";
+                                emp.password = dtRow["password"] + "";
+                                emp.position = dtRow["position"] + "";
+                                emp.restaurant_id = dtRow["restaurant_id"] + "";
+                                emp.tanent_id = dtRow["tanent_id"] + "";
+                                emp.access_type = dtRow["access_type"] + "";
+                                emp.acess_token = dtRow["access_token"] + "";
+                                emp.created = dtRow["created"] + "";
+                                emp.daily_cash_limit = dtRow["daily_cash_limit"] + "";
+                                emp.employee_name = dtRow["employee_name"] + "";
+
+                                dbPassword = emp.password;
+
+                                //Check for Password is Correct or Not
+                                if (!String.IsNullOrEmpty(dbPassword))
+                                {
+                                    if (dbPassword.Trim() != txtPassword.Text.Trim())
+                                    {
+                                        MessageBox.Show("Password do not match ?", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    }
+                                    else if (dbPassword.Trim() == txtPassword.Text.Trim())
+                                    {
+                                        //Save the Current Employee Id
+                                        Program.CurrentEmployeeID = emp.id;
+                                        //Add Into Global Employee List
+                                        if (!Program.Employees.Where(p => p.id == emp.id).Any())
+                                            Program.Employees.Add(emp);
+
+                                        Program.IsLogined = true;
+
+                                        //Create EmployeeSession
+                                        Program.SessionId = emp.tanent_id + "-" + DateTime.UtcNow.Date.ToString("ddMMyyyy");
+
+                                        using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
+                                        {
+                                            OConn.Open();
+                                            OleDbCommand com = new OleDbCommand("insert into employeesessions(restaurent_id,session_id,session_start_time,session_end_time,session_status) values (@restaurent_id,@session_id,@session_start_time,@session_end_time,@session_status);", OConn);
+                                            com.Parameters.AddWithValue("@restaurent_id",emp.restaurant_id);
+                                            com.Parameters.AddWithValue("@session_id", Program.SessionId);
+                                            com.Parameters.AddWithValue("@session_start_time", DateTime.UtcNow.Date.ToString("dd-MM-yyyy"));
+                                            com.Parameters.AddWithValue("@session_end_time", "");
+                                            com.Parameters.AddWithValue("@session_status", "Pending");
+                                            var InsertResult = com.ExecuteNonQuery();
+                                            com = new OleDbCommand("Select @@Identity;", OConn);
+                                            string SessionId = com.ExecuteScalar() + "";
+
+                                            OleDbCommand sCom = new OleDbCommand("insert into sessionusers(session_id,employee_id,tanent_id,restaurent_id,emp_loggedin_time,emp_status) values(@session_id,@employee_id,@tanent_id,@restaurent_id,@emp_loggedin_time,'LoggedIn')", OConn);
+                                            sCom.Parameters.AddWithValue("@session_id", SessionId);
+                                            sCom.Parameters.AddWithValue("@employee_id", emp.id);
+                                            sCom.Parameters.AddWithValue("@tanent_id", emp.tanent_id);
+                                            sCom.Parameters.AddWithValue("@restaurent_id", emp.restaurant_id);
+                                            sCom.Parameters.AddWithValue("@emp_loggedin_time", DateTime.UtcNow.ToString());
+                                            var result = sCom.ExecuteNonQuery();
+                                        }
+                                        //Fetch the Outlet Type
+
+
+                                        //Program.OutletType = result.outlet_Type;//Restraunt Table
+                                        //Token is not required
+                                        //Program.Token = result.data;
+                                        //Form Opened Directly
+                                        this.Hide();
+                                        if (!IsMain)
+                                        {
+                                            frmMain _main = new frmMain();
+                                            _main.ShowDialog();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        MessageBox.Show("Login Failed For User ?", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                MessageBox.Show("User not found ?", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            }
+
+                        }
+                        else
+                        {
+                            MessageBox.Show("User Not Found ?", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         }
                     }
-                    else
+
+                    //Show Message for Sync.
+                    //Sync all api altogether.
+                    if (rowCount == 0)
                     {
-                        MessageBox.Show("Login Failed For User ?", "Login Denied", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        Program.IsInitialSetup = true;
+                        bool CheckConnection = Program.CheckForInternetConnection();
+
+                        if (CheckConnection)
+                        {
+                            DialogResult msgRes = MessageBox.Show("Do you want to Sync Data from Server ?", "Sync System", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                            if (DialogResult.Yes == msgRes)
+                            {
+                                Processing frmProcess = new Processing();
+                                frmProcess.UserName = txtUserName.Text.Trim();
+                                frmProcess.Password = txtPassword.Text.Trim();
+                                frmProcess.ShowDialog();
+
+                                MessageBox.Show(frmProcess.Message, "Sync Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            }
+                        }
+                        else
+                        {
+                            MessageBox.Show("Please Check Internet Connection ?", "Connection Issue", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            return;
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -130,7 +229,7 @@ namespace BestariTerrace.Forms
             }
 
             this.txtUserName.Text = txt;
-            
+
             if (this.txtUserName.Text == "" && this.txtUserName.TextLength > 0)
             {
                 this.txtUserName.Text = "User Name";
@@ -149,12 +248,12 @@ namespace BestariTerrace.Forms
             //txtUserName.Text = "tanent_admin_1";
             //txtPassword.Text = "welcome2sw";
             //txtUserName.se
-            
+
         }
 
         private void txtUserName_Click(object sender, EventArgs e)
         {
-            
+
         }
 
         private void txtUserName_MouseMove(object sender, MouseEventArgs e)
@@ -174,7 +273,7 @@ namespace BestariTerrace.Forms
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if(!IsMain)
+            if (!IsMain)
             {
                 DialogResult msgResult = MessageBox.Show("Do you want to Exit Application ?", "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
                 if (msgResult == DialogResult.No)
@@ -203,7 +302,7 @@ namespace BestariTerrace.Forms
                     IsClosed = true;
                 }
             }
-            
+
             //base.OnFormClosing(e);
         }
     }

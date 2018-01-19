@@ -9,11 +9,21 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Drawing.Printing;
 using System.Management;
+using System.Net;
+using System.Data;
 
 namespace BestariTerrace
 {
     static class Program
     {
+        //GET DATA SCHEMAS
+        #region OFFLINE DATA
+        public static ObservableCollection<App_Off_BAL.EmployeeCL> Employees = new ObservableCollection<App_Off_BAL.EmployeeCL>();
+        public static ObservableCollection<App_Off_BAL.Employeesession> EmployeeSession = new ObservableCollection<App_Off_BAL.Employeesession>();
+        public static ObservableCollection<App_Off_BAL.SessionuserCL> SessionUsers = new ObservableCollection<App_Off_BAL.SessionuserCL>();
+
+        public static string CurrentEmployeeID { get; set; }
+        #endregion
         //public static string PrinterName
         //{
         //    get {
@@ -29,6 +39,9 @@ namespace BestariTerrace
         //    }
         //}
         public static string ConnectionStr = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=bestari.accdb;Jet OLEDB:Database Password=bestari;Persist Security Info=True";
+        public static bool IsInitialSetup = false;
+
+
         public static StoreDetails StoreInfo = new StoreDetails();
         public static List<CategoryListCL> Categories = new List<CategoryListCL>();
         public static List<ProductListCL> Products = new List<ProductListCL>();
@@ -108,6 +121,24 @@ namespace BestariTerrace
                 OrderBindings.SumTakeAwayConfirmedAmountTotal = double.Parse(SumConfirmed.ToString());
                 OrderBindings.SumTakeAwayUnconfirmedAmountTotal = double.Parse(SumUncofirmed.ToString());
             }            
-        }        
+        }
+
+        public static bool CheckForInternetConnection()
+        {
+            try
+            {
+                using (var client = new WebClient())
+                {
+                    using (client.OpenRead("http://clients3.google.com/generate_204"))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 }

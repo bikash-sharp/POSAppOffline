@@ -29,6 +29,9 @@ namespace BestariTerrace.Forms
 {
     public partial class frmMain : Form
     {
+        //Background Worker For the Hit API at Every 15s
+        private System.ComponentModel.BackgroundWorker syncWorker;
+
         public static bool IsClosed = false;
         public int SelectedCategoryID = 0;
         public static bool IsOrder = false;
@@ -40,8 +43,29 @@ namespace BestariTerrace.Forms
             this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
             this.SetStyle(ControlStyles.UserPaint, true);
             this.SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+
+            this.syncWorker = new System.ComponentModel.BackgroundWorker();
+            syncWorker.DoWork += SyncWorker_DoWork;
+            syncWorker.RunWorkerCompleted += SyncWorker_RunWorkerCompleted;
+            syncWorker.ProgressChanged += SyncWorker_ProgressChanged;
+            syncWorker.WorkerReportsProgress = true;
+            syncWorker.WorkerSupportsCancellation = true;
         }
 
+        private void SyncWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void SyncWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void SyncWorker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
 
         private void GetStoreInfo()
         {

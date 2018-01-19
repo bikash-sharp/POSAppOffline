@@ -57,9 +57,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CommonTransfer.cs" />
-    <Compile Include="DataCL.cs" />
     <Compile Include="DataTransfer.cs" />
+    <Compile Include="GetData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

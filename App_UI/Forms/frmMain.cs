@@ -24,6 +24,7 @@ using System.Net;
 using System.Collections;
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Data.OleDb;
 
 namespace BestariTerrace.Forms
 {
@@ -52,19 +53,24 @@ namespace BestariTerrace.Forms
             syncWorker.WorkerSupportsCancellation = true;
         }
 
+        public void ActivateRestraunt()
+        {
+
+        }
+
         private void SyncWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
         {
-            throw new NotImplementedException();
+
         }
 
         private void SyncWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            throw new NotImplementedException();
+
         }
 
         private void SyncWorker_DoWork(object sender, DoWorkEventArgs e)
         {
-            throw new NotImplementedException();
+
         }
 
         private void GetStoreInfo()
@@ -72,22 +78,24 @@ namespace BestariTerrace.Forms
             //Load with StoreInfo
             try
             {
-                string URL = Program.BaseUrl;
-                JavaScriptSerializer serializer = new JavaScriptSerializer();
-                string StoreInfoUrl = URL + "/storeDetails?acess_token=" + Program.Token;
-                var GetStatus = DataProviderWrapper.Instance.GetData(StoreInfoUrl, Verbs.GET, "");
-                var result = serializer.Deserialize<StoreDetails>(GetStatus);
-                if (result != null)
+                App_BAL.Restaurant _resInfo = new Restaurant();
+                var Info = Program.Restaurents.Where(p => p.id == Program.RestaurentID).FirstOrDefault();
+                if (Info != null)
                 {
-                    Program.StoreInfo = result;
+                    _resInfo.address = Info.location;
+                    _resInfo.contact_no = Info.contact_no;
+                    _resInfo.gst_no = Info.gst_no;
+                    _resInfo.gst_status = Info.gst;
+                    _resInfo.restaurant_image = Info.restaurant_image;
+                    _resInfo.restaurant_name = Info.restaurant_name;
+                    _resInfo.restaurant_type = Info.restaurant_type;
+                    Program.GSTValue = double.Parse(String.IsNullOrEmpty(Info.gst_value) ? "0":Info.gst_value);
+                    Program.StoreInfo.message.Restaurant = _resInfo;
                 }
-                string StoreLogo = Program.StoreInfo.message.Restaurant.restaurant_image;
-                StoreLogo = Program.StoreImagesLoc + StoreLogo;
-                GetImage(StoreLogo);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "StoreInfo", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                MessageBox.Show(ex.Message, "StoreInfo", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         private void frmMain_Load(object sender, EventArgs e)
@@ -95,17 +103,10 @@ namespace BestariTerrace.Forms
             if (Program.OutletType.Contains("RESTAURANT"))
             {
                 rdbDelivery.Visible = rdbOrder.Visible = rdbTakeWay.Visible = rdbReservation.Visible = true;
-                //rdbDelivery.Location = new Point(647, 19);
-                //rdbDelivery.Size = new Size(73, 25);
-                //rdbDelivery.Text = "DELIVERY";
             }
             else
             {
                 rdbTakeWay.Text = "SALES";
-                //rdbDelivery.Visible = true;
-                //rdbDelivery.Location = new Point(550, 19);
-                //rdbDelivery.Text = "SALES AND DELIVERIES";
-                //rdbDelivery.Size = new Size(160, 25);
                 rdbOrder.Visible = rdbReservation.Visible = false;
             }
             var path = new System.Drawing.Drawing2D.GraphicsPath();
@@ -136,52 +137,70 @@ namespace BestariTerrace.Forms
 
         private void BindProducts(String foodtype = "all")
         {
-            if (rdbDelivery.Checked != true && rdbOrder.Checked != true && rdbTakeWay.Checked != true && rdbReservation.Checked != true)
+            try
             {
-                string URL = Program.BaseUrl;
-                string ProductURL = String.Empty;
-                if (foodtype == "all")
-                {
-                    ProductURL = URL + "/productlisting?acess_token=" + Program.Token;
-                }
-                else
-                {
-                    ProductURL = URL + "/filterproducts?category=" + foodtype + "&acess_token=" + Program.Token;
-                }
 
-                var ProductList = DataProviderWrapper.Instance.GetData(ProductURL, Verbs.GET, "");
-
-                JavaScriptSerializer serializer = new JavaScriptSerializer();
-                var result = serializer.Deserialize<ProductListAPICL>(ProductList);
-                if (foodtype == "all")
+                if (rdbDelivery.Checked != true && rdbOrder.Checked != true && rdbTakeWay.Checked != true && rdbReservation.Checked != true)
                 {
-                    foreach (var item in result.data)
+                    //string URL = Program.BaseUrl;
+                    string ProductCommand = "Select * from products where restaurent_id=@restrauntId";
+
+                    using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
                     {
-                        var prd = item.Product;
-                        if (prd != null)
+                        OConn.Open();
+                        string SelectCommand = ProductCommand;
+                        OleDbCommand com = new OleDbCommand(SelectCommand, OConn);
+                        //com.Parameters.AddWithValue("@tanentId", Program.TenantID);
+                        com.Parameters.AddWithValue("@restrauntId", Program.RestaurentID);                       
+                        OleDbDataAdapter da = new OleDbDataAdapter(com);
+                        DataSet dsStore = new DataSet("Products");
+                        da.Fill(dsStore);
+                        if (dsStore.Tables.Count > 0)
                         {
-                            int productId = int.Parse(prd.id);
-                            var IsExists = Program.Products.Where(p => p.ProductID == productId).Any();
-                            if (!IsExists)
+                            DataTable dtStore = dsStore.Tables[0];
+                            //Fetch Details 
+                            if (dtStore.Rows.Count > 0)
                             {
-                                Program.Products.Add(new ProductListCL { ProductID = productId, ProductName = prd.product_name, ProductNumber = prd.product_code, Price = double.Parse(prd.product_price) });
+                                for(int i=0;i<dtStore.Rows.Count;i++)
+                                {
+                                    DataRow CurrentRow = dtStore.Rows[i];
+                                    App_BAL.ProductListCL _productInfo = new ProductListCL();
+                                    _productInfo.ProductType = CurrentRow["food_type"] + "";
+                                    _productInfo.ProductID = int.Parse(CurrentRow["Server_Id"] + "");
+                                    _productInfo.ProductName = CurrentRow["product_name"] + "";
+                                    _productInfo.ProductNumber = CurrentRow["product_code"] + "";
+                                    _productInfo.Price = double.Parse(CurrentRow["product_price"] + "");
+                                    _productInfo.ImageName = CurrentRow["product_image"] + "";
+
+                                    var IsExists = Program.Products.Where(p => p.ProductID == _productInfo.ProductID).Any();
+                                    if (!IsExists)
+                                    {
+                                        Program.Products.Add(_productInfo);
+                                    }
+                                }
+                                
                             }
                         }
                     }
-                }
-                this.flyLayout.Controls.Clear();
-                this.flyLayout.VerticalScroll.Enabled = true;
-                this.flyLayout.VerticalScroll.Visible = true;
-                if (result.status)
-                {
-                    AddCounterSaleLink();
-                    foreach (var itm in result.data)
+                    this.flyLayout.Controls.Clear();
+                    this.flyLayout.VerticalScroll.Enabled = true;
+                    this.flyLayout.VerticalScroll.Visible = true;
+                    var ProductList = Program.Products;
+                    if (foodtype !="all")
                     {
-                        CreateProdButtons(itm.Product);
+                        ProductList = Program.Products.Where(p => p.ProductType == foodtype).ToList();
+                    }
+                    AddCounterSaleLink();
+                    foreach (var itm in ProductList)
+                    {
+                        CreateProdButtons(itm);
                     }
                 }
             }
-
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "ProductInfo", MessageBoxButtons.YesNo, MessageBoxIcon.Error);
+            }
         }
 
         private void AddCounterSaleLink()
@@ -198,7 +217,7 @@ namespace BestariTerrace.Forms
 
             PictureBox pic = new PictureBox();
             pic.Name = "pic_0";
-            pic.ImageLocation = "StoreLogo.bmp";
+            pic.ImageLocation = Program.StoreLogo;
             pic.ErrorImage = global::BestariTerrace.Properties.Resources.IMG_NotFound;
             //pic.Image = global::BestariTerrace.Properties.Resources.IMG_NotFound;
             pic.Width = 200;
@@ -230,11 +249,11 @@ namespace BestariTerrace.Forms
             this.flyLayout.Controls.Add(pnl);
         }
 
-        private void CreateProdButtons(ProductCL itm)
+        private void CreateProdButtons(ProductListCL itm)
         {
             Panel pnl = new Panel();
 
-            pnl.Name = "pnl_" + itm.id;
+            pnl.Name = "pnl_" + itm.ProductID;
             pnl.Width = 200;
             pnl.Height = 220;
             pnl.Tag = itm;
@@ -243,8 +262,8 @@ namespace BestariTerrace.Forms
 
 
             PictureBox pic = new PictureBox();
-            pic.Name = "pic_" + itm.id;
-            pic.ImageLocation = Program.ProductImagesLoc + itm.product_image;
+            pic.Name = "pic_" + itm.ProductID;
+            pic.ImageLocation = itm.ImageName;
             pic.ErrorImage = global::BestariTerrace.Properties.Resources.IMG_NotFound;
             //pic.Image = global::BestariTerrace.Properties.Resources.IMG_NotFound;
             pic.Width = 200;
@@ -259,8 +278,8 @@ namespace BestariTerrace.Forms
             pnl.Controls.Add(pic);
 
             Label lblName = new Label();
-            lblName.Name = "lblProductName_" + itm.id;
-            lblName.Text = itm.product_name + Environment.NewLine + "MYR - " + itm.product_price;
+            lblName.Name = "lblProductName_" + itm.ProductID;
+            lblName.Text = itm.ProductName + Environment.NewLine + "MYR - " + itm.Price.ToString("N2");
             lblName.Location = new Point(5, pic.Height + 5);
             lblName.AutoSize = false;
             lblName.Width = pnl.Width - 10;
@@ -278,23 +297,23 @@ namespace BestariTerrace.Forms
 
         void pnl_Click(object sender, EventArgs e)
         {
-            ProductCL prod = new ProductCL();
+            ProductListCL prod = new ProductListCL();
             try
             {
                 if (sender is Panel)
                 {
-                    prod = (ProductCL)(sender as Panel).Tag;
+                    prod = (ProductListCL)(sender as Panel).Tag;
                 }
                 else if (sender is Label)
                 {
-                    prod = (ProductCL)(sender as Label).Tag;
+                    prod = (ProductListCL)(sender as Label).Tag;
                 }
                 else if (sender is PictureBox)
                 {
-                    prod = (ProductCL)(sender as PictureBox).Tag;
+                    prod = (ProductListCL)(sender as PictureBox).Tag;
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 var err = ex;
             }
@@ -302,8 +321,7 @@ namespace BestariTerrace.Forms
             {
                 bool IsNew = false;
                 CartItemsCL cl = new CartItemsCL();
-                int ProductId = 0;
-                int.TryParse(prod.id, out ProductId);
+                int ProductId = prod.ProductID;
                 if (ProductId == 0)
                 {
                     frmCounterSale _saleFrm = new frmCounterSale();
@@ -335,15 +353,15 @@ namespace BestariTerrace.Forms
                 {
                     cl = new CartItemsCL();
                     cl.ProductID = ProductId;
-                    cl.FoodType = prod.food_type;
-                    cl.Price = Convert.ToDouble(prod.product_price);
-                    cl.OriginalPrice = Convert.ToDouble(prod.product_price);
+                    cl.FoodType = prod.ProductType;
+                    cl.Price = Convert.ToDouble(prod.Price);
+                    cl.OriginalPrice = Convert.ToDouble(prod.Price);
                     cl.Quantity = 1;
-                    cl.ProductName = prod.product_name;
+                    cl.ProductName = prod.ProductName;
                     Program.cartItems.Add(cl);
                 }
 
-                
+
                 //  IsConnected = true;
                 //}
                 // BindCart(Program.cartItems);
@@ -374,7 +392,7 @@ namespace BestariTerrace.Forms
             {
                 frmManagerExit mgr = new frmManagerExit();
                 mgr.ShowDialog();
-                if(mgr.IsOK)
+                if (mgr.IsOK)
                 {
                     Program.ClearData();
                     Application.ExitThread();
@@ -390,21 +408,12 @@ namespace BestariTerrace.Forms
 
         private void BindProductBySearchText()
         {
-            string URL = Program.BaseUrl;
-            string SearchTextURL = URL + "/filterbyname?name=" + txtSearch.Text.Trim() + "&acess_token=" + Program.Token;
-
-            var ProductList = DataProviderWrapper.Instance.GetData(SearchTextURL, Verbs.GET, "");
-            JavaScriptSerializer serializer = new JavaScriptSerializer();
-            var result = serializer.Deserialize<ProductListAPICL>(ProductList);
-
-            if (result.status)
+            var ProductList = Program.Products.Where(p => ProductName.Contains(txtSearch.Text)).ToList();
+            flyLayout.Controls.Clear();
+            AddCounterSaleLink();
+            foreach (var itm in ProductList)
             {
-                flyLayout.Controls.Clear();
-                AddCounterSaleLink();
-                foreach (var itm in result.data)
-                {
-                    CreateProdButtons(itm.Product);
-                }
+                CreateProdButtons(itm);
             }
         }
 
@@ -455,7 +464,7 @@ namespace BestariTerrace.Forms
                                 return;
                             }
                         }
-                       
+
                     }
                     else
                     {
@@ -582,59 +591,6 @@ namespace BestariTerrace.Forms
             System.Threading.Thread.Sleep(20);
             //stream.Close(5000); //Wait 5 seconds to ensure that the data is sent.
             client.Close();
-
-            //Socket clientSock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            //clientSock.NoDelay = true;
-            //IPAddress ip = IPAddress.Parse(printerName);
-            //IPEndPoint remoteEP = new IPEndPoint(ip, 9100);
-            //clientSock.Connect(remoteEP);
-            //Encoding enc = Encoding.ASCII;
-            //// Send the bytes over 
-            //clientSock.Send(document);
-            //clientSock.Close();
-
-            //NativeMethods.DOC_INFO_1 documentInfo;
-            //IntPtr printerHandle;
-            //documentInfo = new NativeMethods.DOC_INFO_1();
-            //documentInfo.pDataType = "RAW";
-            //documentInfo.pDocName = "Receipt";
-            //printerHandle = new IntPtr(0);
-            //if (NativeMethods.OpenPrinter(printerName.Normalize(), out printerHandle, IntPtr.Zero))
-            //{
-            //    if (NativeMethods.StartDocPrinter(printerHandle, 1, documentInfo))
-            //    {
-            //        int bytesWritten;
-            //        byte[] managedData;
-            //        IntPtr unmanagedData;
-            //        managedData = document;
-            //        unmanagedData = Marshal.AllocCoTaskMem(managedData.Length);
-            //        Marshal.Copy(managedData, 0, unmanagedData, managedData.Length);
-            //        if (NativeMethods.StartPagePrinter(printerHandle))
-            //        {
-            //            NativeMethods.WritePrinter(
-            //                printerHandle,
-            //                unmanagedData,
-            //                managedData.Length,
-            //                out bytesWritten);
-            //            NativeMethods.EndPagePrinter(printerHandle);
-            //        }
-            //        else
-            //        {
-            //            throw new Win32Exception();
-            //        }
-            //        Marshal.FreeCoTaskMem(unmanagedData);
-            //        NativeMethods.EndDocPrinter(printerHandle);
-            //    }
-            //    else
-            //    {
-            //        throw new Win32Exception();
-            //    }
-            //    NativeMethods.ClosePrinter(printerHandle);
-            //}
-            //else
-            //{
-            //    throw new Win32Exception();
-            //}
         }
 
         public static byte[] GetDocument(string OrderNumber, EmPrinterType printerType)
@@ -672,19 +628,6 @@ namespace BestariTerrace.Forms
                     //File.WriteAllBytes(checkPath, pic);
                     File.WriteAllBytes("StoreLogo.bmp", pic);
                 }
-
-                //using (WebClient webClient = new WebClient())
-                //{
-                //    using (Stream stream = webClient.OpenRead(imgPath))
-                //    {
-                //        using (Bitmap bitmap = new Bitmap(stream))
-                //        {
-                //            stream.Flush();
-                //            stream.Close();
-                //            bitmap.Save("StoreLogo.bmp");
-                //        }
-                //    }
-                //}
             }
             catch (Exception ex)
             {
@@ -749,8 +692,8 @@ namespace BestariTerrace.Forms
 
                     try
                     {
-                    
-                       //if (Program.StoreInfo.message.Restaurant.gst_status != null)
+
+                        //if (Program.StoreInfo.message.Restaurant.gst_status != null)
                         if (Program.OutletType.Contains("RESTAURANT"))
                         {
                             bw.NormalFont("GST : 6.00 %");
@@ -806,47 +749,6 @@ namespace BestariTerrace.Forms
                     }
                 }
             }
-
-            //bw.Center(Program.StoreInfo.message.Restaurant.restaurant_name);
-            //bw.Center(Program.StoreInfo.message.Restaurant.address);
-            //bw.Center(Program.StoreInfo.message.Restaurant.contact_no);
-            //bw.LeftJustify("------------------------------------------------");
-            //bw.NormalFont("Invoice #: " + OrderNumber);
-            //bw.NormalFont("Staff : test User");
-            //bw.NormalFont("Date: " + DateTime.UtcNow.ToString("dd-MM-yyyy hh:mm:ss"));
-            //bw.NormalFont("------------------------------------------------");
-            //bw.FeedLines(2);
-            //bw.NormalFont("------------------------------------------------");
-            //if (printerType == EmPrinterType.CashCounter)
-            //{
-            //    bw.NormalFont(("Description").PadRight(35) + ("Qty.").PadRight(5) + ("Amt.").PadLeft(8));
-            //    bw.NormalFont("------------------------------------------------");
-            //    var FormatCartItems = FormatLine(cartItems, 33, printerType);
-            //    foreach (var item in FormatCartItems)
-            //    {
-            //        bw.NormalFont(item.LineText);
-            //    }
-            //    bw.NormalFont("------------------------------------------------");
-
-            //    bw.NormalFont("Number of Items : " + cartItems.Sum(p => p.Quantity));
-            //    if (Program.StoreInfo.message.Restaurant.gst_no != "0")
-            //    {
-            //        bw.NormalFont("Discount:" + Program.StoreInfo.message.Restaurant.gst);
-            //    }
-            //    bw.NormalFont("Sub Total:  " + String.Format("{0:n2}", cartItems.FirstOrDefault().CartTotal.ToString("N2")));
-            //    bw.NormalFont("------------------------------------------------");
-            //}
-            //else
-            //{
-            //    bw.NormalFont(("Description").PadRight(43) + ("Qty.").PadRight(5));
-            //    bw.NormalFont("------------------------------------------------");
-            //    var FormatCartItems = FormatLine(cartItems, 40, printerType);
-            //    foreach (var item in FormatCartItems)
-            //    {
-            //        bw.NormalFont(item.LineText);
-            //    }
-            //}
-            //bw.Finish();
         }
 
         public int GetUniqueNumber()
@@ -1188,181 +1090,139 @@ namespace BestariTerrace.Forms
 
         public void GetPendingOrders()
         {
-            //Load with Reservations
-            string URL = Program.BaseUrl;
-            JavaScriptSerializer serializer = new JavaScriptSerializer();
-            #region PendingOrder
-            string PendingOrdURL = URL + "/pendingorders?acess_token=" + Program.Token;
-            var GetStatus = DataProviderWrapper.Instance.GetData(PendingOrdURL, Verbs.GET, "");
-
-            var result = serializer.Deserialize<PendingOrderAPI>(GetStatus);
-            if (result != null)
+            String CurrentDate = DateTime.UtcNow.ToString("MM/dd/yyyy", new CultureInfo("en-SG"));
+            using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
             {
-                if (result.data != null)
+                OConn.Open();
+                string SelectCommand = "Select * from orderdetails where created=@currentDate AND restaurant_id=@restaurentId AND tanent_id=@tanentId";
+                OleDbCommand com = new OleDbCommand(SelectCommand, OConn);
+                com.Parameters.AddWithValue("@currentDate", CurrentDate);
+                com.Parameters.AddWithValue("@restaurentId", Program.RestaurentID);
+                com.Parameters.AddWithValue("@tanentId", Program.TenantID);
+                OleDbDataAdapter da = new OleDbDataAdapter(com);
+                DataSet dsPendingOrder = new DataSet("PendingOrderInfo");
+                da.Fill(dsPendingOrder);
+                if (dsPendingOrder.Tables.Count > 0)
                 {
-                    foreach (var item in result.data)
+                    DataTable dtStore = dsPendingOrder.Tables[0];
+                    //Fetch Details 
+                    if (dtStore.Rows.Count > 0)
                     {
-                        var OrderId = "" + item.Order?.Orderdetail?.order_id;
-                        var _OrderType = EmOrderType.Delivery;
-                        var ordType = "" + item.Order?.Orderdetail?.order_type;
-                        if (ordType.ToLower() == "dine_in")
+                        for (int i = 0; i < dtStore.Rows.Count; i++)
                         {
-                            _OrderType = EmOrderType.DineIn;
-                        }
-                        else if (ordType.ToLower() == "takeout" || ordType.ToLower() == "take_away")
-                        {
-                            _OrderType = EmOrderType.TakeOut;
-                        }
-                        else
-                        {
-                            _OrderType = EmOrderType.Delivery;
-                        }
-                        var ordStatus = EmOrderStatus.Pending;
-                        var btnActionText = "Update Status";
-                        var OrderStatus = "" + item.Order?.Orderdetail?.order_status;
-                        if (OrderStatus.ToLower().Trim() == "pending")
-                        {
-                            ordStatus = EmOrderStatus.Pending;
-                            btnActionText = "Pending Status";
-                        }
-                        else if (OrderStatus.ToLower().Trim() == "in_progress")
-                        {
-                            ordStatus = EmOrderStatus.Confirmed;
-                            btnActionText = "In-Progress Status";
-                        }
-                        else if (OrderStatus.ToLower().Trim() == "completed")
-                        {
-                            ordStatus = EmOrderStatus.Delivered;
-                            btnActionText = "Delivered";
-                        }
-                        var Total = "" + item.Order?.Orderdetail?.total;
-                        if (!String.IsNullOrEmpty(OrderId) && !String.IsNullOrEmpty(OrderStatus) && _OrderType == EmOrderType.Delivery)
-                        {
-                            bool isExist = Program.PlacedOrders.Where(p => p.OrderNo == OrderId).Any();
+                            DataRow dr = dtStore.Rows[i];
+                            var ordStatus = EmOrderStatus.Pending;
+                            var btnActionText = "Update Status";
+                            var _OrderType = EmOrderType.Delivery;
+
+                            string OrderType = dr["order_type"] + "";
+                            if (OrderType.ToLower() == "dine_in")
+                            {
+                                _OrderType = EmOrderType.DineIn;
+                            }
+                            else if (OrderType.ToLower() == "takeout" || OrderType.ToLower() == "take_away")
+                            {
+                                _OrderType = EmOrderType.TakeOut;
+                            }
+                            else
+                            {
+                                _OrderType = EmOrderType.Delivery;
+                            }
+
+                            string orderStatus = dr["order_status"] + "";
+                            if (orderStatus.ToLower().Trim() == "pending")
+                            {
+                                ordStatus = EmOrderStatus.Pending;
+                                btnActionText = "Pending Status";
+                            }
+                            else if (orderStatus.ToLower().Trim() == "in_progress")
+                            {
+                                ordStatus = EmOrderStatus.Confirmed;
+                                btnActionText = "In-Progress Status";
+                            }
+                            else if (orderStatus.ToLower().Trim() == "completed")
+                            {
+                                ordStatus = EmOrderStatus.Delivered;
+                                btnActionText = "Delivered";
+                            }
+
+                            App_BAL.CartCL _Order = new CartCL();
+                            _Order.OrderDate = DateTime.Parse(dr["created"] + "");
+                            _Order.OrderNo = dr["order_id"] + "";
+                            _Order.BtnActionStatus = btnActionText;
+                            _Order.OrderType = _OrderType;
+                            _Order.OrderStatus = ordStatus;
+                            _Order.OrderTotal = dr["total"] + "";
+
+                            CartItemsCL newCartItem = new CartItemsCL();
+                            newCartItem.orderNo = dr["order_id"] + "";
+                            newCartItem.ProductID = int.Parse(dr["product_id"] + "");
+                            newCartItem.ProductName = dr["product_name"] + "";
+                            newCartItem.OriginalPrice = double.Parse(dr["product_price"] + "");//cItem.cart.product_price 
+                            newCartItem.GrandTotal = double.Parse(dr["total_price"] + "");
+                            newCartItem.Quantity = int.Parse(dr["quantity"] + "");
+
+
+                            bool isExist = Program.PlacedOrders.Where(p => p.OrderNo == _Order.OrderNo).Any();
                             if (!isExist)
                             {
-                                Program.PlacedOrders.Add(new CartCL { OrderNo = OrderId.Trim(), OrderStatus = ordStatus, OrderType = _OrderType, OrderTotal = Total, IsOrderConfirmed = false, BtnActionStatus = btnActionText });
+                                Program.PlacedOrders.Add(_Order);
+                                Program.cartItems.Add(newCartItem);
                             }
                         }
+
                     }
                 }
             }
 
-            #endregion
-
-            #region Reservation
-            string ReservationOrderUrl = URL + "/pendingreservations?acess_token=" + Program.Token;
-
-            var ReservationOrders = DataProviderWrapper.Instance.GetData(ReservationOrderUrl, Verbs.GET, "");
-            var rOrders = serializer.Deserialize<ReservationListAPICL>(ReservationOrders);
-
-            if (rOrders.data != null)
+            //Reservation
+            using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
             {
-                if (rOrders.data.Count > 0)
+                OConn.Open();
+                string SelectCommand = "Select * from tableorders where  order_date=@currentDate  AND restaurent_id=@restaurentId AND tanent_id=@tanentId";
+                OleDbCommand com = new OleDbCommand(SelectCommand, OConn);
+                com.Parameters.AddWithValue("@currentDate", CurrentDate);
+                com.Parameters.AddWithValue("@restaurentId", Program.RestaurentID);
+                com.Parameters.AddWithValue("@tanentId", Program.TenantID);
+                OleDbDataAdapter da = new OleDbDataAdapter(com);
+                DataSet dsReservationInfo = new DataSet("ReservationInfo");
+                da.Fill(dsReservationInfo);
+                if (dsReservationInfo.Tables.Count > 0)
                 {
-                    var dataLst = result.data;
-                    foreach (var item in dataLst)
+                    DataTable dtResInfo = dsReservationInfo.Tables[0];
+                    for (int x = 0; x < dtResInfo.Rows.Count; x++)
                     {
-                        var isExist = Program.Reservations.Where(p => p.TableId == item.Tableorder.id).Any();
+                        var dr = dtResInfo.Rows[x];
+                        ReservationCL _newReservation = new ReservationCL();
+                        _newReservation.TableId = dr["id"] + "";
+                        _newReservation.TableNo = dr["table_no"] + "";
+                        _newReservation.RestrauntId = dr["restaurent_id"] + "";
+                        _newReservation.DinerName = dr["diner_name"] + "";
+                        _newReservation.GuestCount = dr["guests"] + "";
+                        _newReservation.MobileNo = dr["mobile"] + "";
+                        _newReservation.ReservationDate = dr["order_date"] + "";
+                        _newReservation.ReservationTime = dr["from_time"] + "-" + dr["to_time"];
+                        _newReservation.ReservationStatus = dr["status"] + "";
+                        if (_newReservation.ReservationStatus.ToLower() == "completed")
+                            _newReservation.ActionText = "Assigned";
+                        else
+                            _newReservation.ActionText = "Assign Table";
+
+                        var isExist = Program.Reservations.Where(p => p.TableId == _newReservation.TableId).Any();
                         if (!isExist)
                         {
-                            ReservationCL reserve = new ReservationCL();
-                            reserve.TableId = item.Tableorder.id;
-                            reserve.TableNo = "0"; //item.TableNo
-                            reserve.RestrauntId = item.Tableorder.restaurent_id;
-                            reserve.DinerName = item.Tableorder.diner_name;
-                            reserve.GuestCount = item.Tableorder.guests;
-                            reserve.MobileNo = item.Tableorder.mobile;
-                            reserve.ReservationDate = item.Tableorder.date;
-                            reserve.ReservationTime = item.Tableorder.from_time + "-" + item.Tableorder.to_time;
-                            reserve.ReservationStatus = item.Tableorder.status;
-                            if (item.Tableorder.status.ToLower() == "completed")
-                                reserve.ActionText = "Assigned";
-                            else
-                                reserve.ActionText = "Assign Table";
-                            Program.Reservations.Add(reserve);
+                            Program.Reservations.Add(_newReservation);
                         }
                     }
                 }
-            }
-            #endregion
 
+            }
             //Get the Counting
             Program.OrderCount(EmOrderType.Delivery);
             //Set the Notification Count
             lblOrderCount.DataBindings.Clear();
             var OrderCount = new Binding("Text", Program.OrderBindings, "OrderCount", true, DataSourceUpdateMode.OnPropertyChanged, "0", "");
             lblOrderCount.DataBindings.Add(OrderCount);
-
-
-
-
-            #region DineInOrder & TakeAwayOrders
-            string DineInOrderURL = URL + "/dineinorders?acess_token=" + Program.Token;
-            var DineInOrderStatus = DataProviderWrapper.Instance.GetData(DineInOrderURL, Verbs.GET, "");
-            var dineResult = serializer.Deserialize<PendingOrderAPI>(DineInOrderStatus);
-            List<CartCL> _PlacedOrder = new List<CartCL>();
-            List<CartItemsCL> CartItemList = new List<CartItemsCL>();
-            if (dineResult != null)
-            {
-                if (dineResult.data != null)
-                {
-                    foreach (var item in dineResult.data)
-                    {
-                        var OrderId = "" + item.Orderdetail?.order_id;
-                        var _OrderType = item.Orderdetail?.order_type;
-                        var OrdStatus = EmOrderStatus.Delivered;
-                        var OrdType = EmOrderType.DineIn;
-                        if (_OrderType == "dine_in")
-                        {
-                            OrdType = EmOrderType.DineIn;
-                        }
-                        else
-                        {
-                            OrdType = EmOrderType.TakeOut;
-                        }
-                        CartCL newOrder = new CartCL();
-                        newOrder.OrderNo = OrderId.ToString();
-                        newOrder.OrderStatus = OrdStatus;
-                        newOrder.OrderType = OrdType;
-                        newOrder.OrderTotal = item.Orderdetail.total;
-
-
-                        var orderCart = item.Orderdetail.cart;
-                        if (orderCart.Count > 0)
-                        {
-                            foreach (var cItem in orderCart)
-                            {
-                                if (cItem.cart != null)
-                                {
-                                    CartItemsCL newCartItem = new CartItemsCL();
-                                    newCartItem.orderNo = OrderId.ToString();
-                                    newCartItem.ProductID = int.Parse(cItem.cart.product_id);
-                                    newCartItem.ProductName = cItem.Product.product_name;
-                                    newCartItem.OriginalPrice = double.Parse(cItem.Product.product_price);//cItem.cart.product_price 
-                                    newCartItem.GrandTotal = double.Parse(cItem.cart.total_price);
-                                    newCartItem.Quantity = int.Parse(cItem.cart.quantity);
-                                    CartItemList.Add(newCartItem);
-                                }
-                            }
-                        }
-                        _PlacedOrder.Add(newOrder);
-                    }
-                }
-                //Add the Order in the Programs
-                foreach (var _plOrder in _PlacedOrder)
-                {
-                    var isExists = Program.PlacedOrders.Where(p => p.OrderNo == _plOrder.OrderNo).Any();
-                    if (!isExists)
-                    {
-                        Program.PlacedOrders.Add(_plOrder);
-                        var CartItems = CartItemList.Where(p => p.orderNo == _plOrder.OrderID.ToString()).ToList();
-                        Program.PlacedCartItems.AddRange(CartItems);
-                    }
-                }
-                //Program.PlacedOrders.Add(new CartCL { OrderNo = OrderId.Trim(), OrderStatus = OrdStatus, OrderType = EmOrderType.Delivery, OrderTotal = Total, IsOrderConfirmed = false, BtnActionStatus = btnActionText });
-            }
-            #endregion
         }
 
         private void rdbTakeWay_CheckedChanged(object sender, EventArgs e)
@@ -1505,7 +1365,7 @@ namespace BestariTerrace.Forms
                 frmLogin obj = new frmLogin();
                 obj.IsMain = true;
                 obj.ShowDialog();
-                
+
                 if (!Program.IsLogined)
                 {
                     goto Up;

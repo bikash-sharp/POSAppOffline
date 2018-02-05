@@ -329,10 +329,11 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="bestari.accdb">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Bestari.ico" />
     <Content Include="POS.ico" />
+    <Content Include="Resources\giphy.gif" />
     <Content Include="Resources\logo.jpg" />
     <Content Include="Resources\sale.png" />
     <None Include="Resources\sc.bmp" />

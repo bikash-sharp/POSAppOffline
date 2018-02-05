@@ -144,6 +144,7 @@ namespace App_Off_BAL
         public string supported_payment_types { get; set; }
         public object ref_url { get; set; }
         public string gst_no { get; set; }
+        public string gst_value { get; set; }
         public string is_active { get; set; }
         public string last_active { get; set; }
     }

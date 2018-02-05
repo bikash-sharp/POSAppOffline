@@ -76,7 +76,7 @@ namespace BestariTerrace.Forms
                                 App_Off_BAL.EmployeeCL emp = new App_Off_BAL.EmployeeCL();
 
                                 DataRow dtRow = dt.Rows[0];
-                                emp.id = dtRow["id"] + "";
+                                emp.id = dtRow["server_id"] + "";
                                 emp.username = dtRow["username"] + "";
                                 emp.password = dtRow["password"] + "";
                                 emp.position = dtRow["position"] + "";
@@ -109,32 +109,98 @@ namespace BestariTerrace.Forms
 
                                         //Create EmployeeSession
                                         Program.SessionId = emp.tanent_id + "-" + DateTime.UtcNow.Date.ToString("ddMMyyyy");
-
+                                        //Check for Today Login Session
+                                        bool IsSession = false;
                                         using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
                                         {
                                             OConn.Open();
-                                            OleDbCommand com = new OleDbCommand("insert into employeesessions(restaurent_id,session_id,session_start_time,session_end_time,session_status) values (@restaurent_id,@session_id,@session_start_time,@session_end_time,@session_status);", OConn);
-                                            com.Parameters.AddWithValue("@restaurent_id",emp.restaurant_id);
-                                            com.Parameters.AddWithValue("@session_id", Program.SessionId);
-                                            com.Parameters.AddWithValue("@session_start_time", DateTime.UtcNow.Date.ToString("dd-MM-yyyy"));
-                                            com.Parameters.AddWithValue("@session_end_time", "");
-                                            com.Parameters.AddWithValue("@session_status", "Pending");
-                                            var InsertResult = com.ExecuteNonQuery();
-                                            com = new OleDbCommand("Select @@Identity;", OConn);
-                                            string SessionId = com.ExecuteScalar() + "";
+                                            OleDbCommand ComChkSesn = new OleDbCommand("Select session_id FROM employeesessions where session_id = @sessionid", OConn);
+                                            ComChkSesn.Parameters.AddWithValue("@sessionid", Program.SessionId);
+                                            var SessionResult = ComChkSesn.ExecuteScalar()+"";
+                                            if(String.IsNullOrEmpty(SessionResult))
+                                            {
+                                                //Create Session
 
-                                            OleDbCommand sCom = new OleDbCommand("insert into sessionusers(session_id,employee_id,tanent_id,restaurent_id,emp_loggedin_time,emp_status) values(@session_id,@employee_id,@tanent_id,@restaurent_id,@emp_loggedin_time,'LoggedIn')", OConn);
-                                            sCom.Parameters.AddWithValue("@session_id", SessionId);
-                                            sCom.Parameters.AddWithValue("@employee_id", emp.id);
-                                            sCom.Parameters.AddWithValue("@tanent_id", emp.tanent_id);
-                                            sCom.Parameters.AddWithValue("@restaurent_id", emp.restaurant_id);
-                                            sCom.Parameters.AddWithValue("@emp_loggedin_time", DateTime.UtcNow.ToString());
-                                            var result = sCom.ExecuteNonQuery();
+                                                OleDbCommand com = new OleDbCommand("insert into employeesessions(restaurent_id,session_id,session_start_time,session_end_time,session_status) values (@restaurent_id,@session_id,@session_start_time,@session_end_time,@session_status);", OConn);
+                                                com.Parameters.AddWithValue("@restaurent_id", emp.restaurant_id);
+                                                com.Parameters.AddWithValue("@session_id", Program.SessionId);
+                                                com.Parameters.AddWithValue("@session_start_time", DateTime.UtcNow.Date.ToString("dd-MM-yyyy"));
+                                                com.Parameters.AddWithValue("@session_end_time", "");
+                                                com.Parameters.AddWithValue("@session_status", "Pending");
+                                                var InsertResult = com.ExecuteNonQuery();
+                                                com = new OleDbCommand("Select @@Identity;", OConn);
+                                                string SessionId = com.ExecuteScalar() + "";
+
+                                                OleDbCommand sCom = new OleDbCommand("insert into sessionusers(session_id,employee_id,tanent_id,restaurent_id,emp_loggedin_time,emp_status) values(@session_id,@employee_id,@tanent_id,@restaurent_id,@emp_loggedin_time,'LoggedIn')", OConn);
+                                                sCom.Parameters.AddWithValue("@session_id", SessionId);
+                                                sCom.Parameters.AddWithValue("@employee_id", emp.id);
+                                                sCom.Parameters.AddWithValue("@tanent_id", emp.tanent_id);
+                                                sCom.Parameters.AddWithValue("@restaurent_id", emp.restaurant_id);
+                                                sCom.Parameters.AddWithValue("@emp_loggedin_time", DateTime.UtcNow.ToString());
+                                                var result = sCom.ExecuteNonQuery();
+                                            }
                                         }
+
                                         //Fetch the Outlet Type
+                                        using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
+                                        {
+                                            OConn.Open();
+                                            string SelectCommand = "Select * from restaurants where Server_id=@restaurent_id";
+                                            OleDbCommand com = new OleDbCommand(SelectCommand, OConn);
+                                            com.Parameters.AddWithValue("@restaurent_id", emp.restaurant_id);
+                                            OleDbDataAdapter da = new OleDbDataAdapter(com);
+                                            DataSet dsRestaurent = new DataSet("Restaurent");
+                                            da.Fill(dsRestaurent);
+                                            if(dsRestaurent.Tables.Count > 0)
+                                            {
+                                                DataTable dtRestaurent = dsRestaurent.Tables[0];
+                                                //Fetch Details 
+                                                if (dtRestaurent.Rows.Count > 0)
+                                                {
+                                                    DataRow CurrentRow = dtRestaurent.Rows[0];
+                                                    var IsRestaurentExist = Program.Restaurents.Where(p => p.id == emp.restaurant_id).Any();
+                                                    if(!IsRestaurentExist)
+                                                    {
+                                                        App_Off_BAL.Restaurant restaurent = new App_Off_BAL.Restaurant();
 
+                                                        restaurent.id = CurrentRow["Server_id"] + "";
+                                                        restaurent.tanent_id = CurrentRow["tanent_id"] + "";
+                                                        restaurent.restaurant_name = CurrentRow["restaurant_name"] + "";
+                                                        restaurent.main_category = CurrentRow["main_category"] + "";
+                                                        restaurent.restaurant_type = CurrentRow["restaurant_type"] + "";
+                                                        restaurent.location = CurrentRow["location"] + "";
+                                                        restaurent.gst = CurrentRow["gst"] + "";
+                                                        restaurent.contact_no = CurrentRow["contact_no"] + "";
+                                                        restaurent.latitude = CurrentRow["latitude"] + "";
+                                                        restaurent.longitude = CurrentRow["longitude"] + "";
+                                                        restaurent.min_item_price = CurrentRow["min_item_price"] + "";
+                                                        restaurent.min_order_price = CurrentRow["min_order_price"] + "";
+                                                        restaurent.order_type = CurrentRow["order_type"] + "";
+                                                        restaurent.shipping_charge = CurrentRow["shipping_charge"] + "";
+                                                        restaurent.delivery_time = CurrentRow["delivery_time"] + "";
+                                                        restaurent.delivery_format = CurrentRow["delivery_format"] + "";
+                                                        restaurent.payment_types = CurrentRow["payment_types"] + "";
+                                                        restaurent.restaurant_image = CurrentRow["restaurant_image"] + "";
+                                                        restaurent.created = CurrentRow["created"] + "";
+                                                        restaurent.delivery_hours = CurrentRow["delivery_hours"] + "";
+                                                        restaurent.reserve_table = CurrentRow["reserve_table"] + "";
+                                                        restaurent.closing_day = CurrentRow["closing_day"] + "";
+                                                        restaurent.supported_payment_types = CurrentRow["supported_payment_types"] + "";
+                                                        restaurent.ref_url = CurrentRow["ref_url"] + "";
+                                                        restaurent.gst_no = CurrentRow["gst_no"] + "";
+                                                        restaurent.gst_value = CurrentRow["gst_value"] + "";
+                                                        Program.Restaurents.Add(restaurent);
+                                                    }
+                                                }
+                                            }
+                                        }
 
+                                        Program.RestaurentID = emp.restaurant_id;
+                                        Program.TenantID = Program.Restaurents.Where(p => p.id == emp.restaurant_id).Select(p => p.tanent_id).FirstOrDefault() + "";
+                                        Program.OutletType = Program.Restaurents.Where(p => p.id == emp.restaurant_id).Select(p => p.restaurant_type).FirstOrDefault() + "";
+                                        Program.StoreLogo = Program.Restaurents.Where(p => p.id == emp.restaurant_id).Select(p => p.restaurant_image).FirstOrDefault() + "";
                                         //Program.OutletType = result.outlet_Type;//Restraunt Table
+
                                         //Token is not required
                                         //Program.Token = result.data;
                                         //Form Opened Directly

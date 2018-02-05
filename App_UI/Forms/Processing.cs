@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
@@ -22,15 +23,43 @@ namespace BestariTerrace.Forms
         public string Password { get; set; }
         public bool IsLoginSuccesful { get; set; }
         public string Message { get; set; }
+        public static bool IsDone { get; set; }
         public Processing()
         {
             InitializeComponent();
+           
+            
         }
 
         private void Processing_Load(object sender, EventArgs e)
         {
+            
+            
+        }
+
+        private void Processing_Shown(object sender, EventArgs e)
+        {
+            backgroundWorker1.WorkerSupportsCancellation = true;
+            backgroundWorker1.WorkerReportsProgress = true;
+            backgroundWorker1.RunWorkerAsync();
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            
+        }
+
+        private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
+        {
+            SyncData();
+        }
+
+        public void SyncData()
+        {
             try
             {
+                //Application.DoEvents();
+
                 //Initial Process
                 if (Program.IsInitialSetup)
                 {
@@ -42,7 +71,8 @@ namespace BestariTerrace.Forms
                     LoginCL result = serializer.Deserialize<LoginCL>(GetLoginDetails);
                     if (result.message == "success")
                     {
-
+                        Message = "Sync Successfull";
+                        IsLoginSuccesful = true;
                         //Program.Token = result.data;
                         //Fetch Data From Server
                         var ServerDataUrl = URL + "/getData?acess_token=" + result.data;
@@ -63,8 +93,9 @@ namespace BestariTerrace.Forms
                                         {
                                             OConn.Open();
                                             //String InsertCommand = @"insert into employees([restaurant_id],[tanent_id],[employee_name],[username],[password],[access_type],[access_token],[position],[created],[daily_cash_limit],[IsSync]) VALUES ('" + item.Employee.restaurant_id+"','"+ item.Employee.tanent_id+"','"+ item.Employee.employee_name+"','"+ item.Employee.username+"','"+ item.Employee.password+"','"+ item.Employee.access_type+"','"+item.Employee.acess_token+"','"+ item.Employee.position+"','"+ item.Employee.created+"','"+ item.Employee.daily_cash_limit+"','0')";
-                                            String InsertCommand = @"insert into employees([restaurant_id],[tanent_id],[employee_name],[username],[password],[access_type],[access_token],[position],[created],[daily_cash_limit],[IsSync]) VALUES (@restaurant_id,@tanent_id,@employee_name,@username,@password,@access_type,@acess_token,@position,@created,@daily_cash_limit,'0')";
+                                            String InsertCommand = @"insert into employees([server_id],[restaurant_id],[tanent_id],[employee_name],[username],[password],[access_type],[access_token],[position],[created],[daily_cash_limit],[IsSync]) VALUES (@server_id,@restaurant_id,@tanent_id,@employee_name,@username,@password,@access_type,@acess_token,@position,@created,@daily_cash_limit,'-1')";
                                             OleDbCommand com = new OleDbCommand(InsertCommand, OConn);
+                                            com.Parameters.AddWithValue("@server_id", item.Employee.id);
                                             com.Parameters.AddWithValue("@restaurant_id", item.Employee.restaurant_id);
                                             com.Parameters.AddWithValue("@tanent_id", item.Employee.tanent_id);
                                             com.Parameters.AddWithValue("@employee_name", item.Employee.employee_name);
@@ -113,9 +144,10 @@ namespace BestariTerrace.Forms
                                         using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
                                         {
                                             OConn.Open();
-                                            String InsertCommand = @"insert into Products(restaurent_id,tanent_id,product_name,product_price,manage_stock,total_stock,remaining_stock,main_category,outlet_categories,food_type,description,product_image,[created],order_type,product_code,IsSync) values 
-                                                                                         (@restaurent_id,@tanent_id,@product_name,@product_price,@manage_stock,@total_stock,@remaining_stock,@main_category,@outlet_categories,@food_type,@description,@product_image,@created,@order_type,@product_code,'0')";
+                                            String InsertCommand = @"insert into Products(Server_Id,restaurent_id,tanent_id,product_name,product_price,manage_stock,total_stock,remaining_stock,main_category,outlet_categories,food_type,description,product_image,[created],order_type,product_code,IsSync) values 
+                                                                                         (@server_id,@restaurent_id,@tanent_id,@product_name,@product_price,@manage_stock,@total_stock,@remaining_stock,@main_category,@outlet_categories,@food_type,@description,@product_image,@created,@order_type,@product_code,'-1')";
                                             OleDbCommand com = new OleDbCommand(InsertCommand, OConn);
+                                            com.Parameters.AddWithValue("@server_id", item.Product.id);
                                             com.Parameters.AddWithValue("@restaurent_id", item.Product.restaurent_id);
                                             com.Parameters.AddWithValue("@tanent_id", item.Product.tanent_id);
                                             com.Parameters.AddWithValue("@product_name", item.Product.product_name);
@@ -170,9 +202,10 @@ namespace BestariTerrace.Forms
                                         using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
                                         {
                                             OConn.Open();
-                                            String InsertCommand = @"insert into restaurants(tanent_id,restaurant_name,main_category,restaurant_type,[location],[gst],contact_no,[latitude],[longitude],min_item_price,min_order_price,order_type,shipping_charge,delivery_time,delivery_format,payment_types,restaurant_image,[created],delivery_hours,reserve_table,closing_day,supported_payment_types,ref_url,gst_no,[IsSync]) 
-                                                                                      values(@tanent_id,@restaurant_name,@main_category,@restaurant_type,@location,@gst,@contact_no,@latitude,@longitude,@min_item_price,@min_order_price,@order_type,@shipping_charge,@delivery_time,@delivery_format,@payment_types,@restaurant_image,@created,@delivery_hours,@reserve_table,@closing_day,@supported_payment_types,@ref_url,@gst_no,'0')";
+                                            String InsertCommand = @"insert into restaurants(Server_id,tanent_id,restaurant_name,main_category,restaurant_type,[location],[gst],contact_no,[latitude],[longitude],min_item_price,min_order_price,order_type,shipping_charge,delivery_time,delivery_format,payment_types,restaurant_image,[created],delivery_hours,reserve_table,closing_day,supported_payment_types,ref_url,gst_no,[IsSync]) 
+                                                                                      values(@server_id,@tanent_id,@restaurant_name,@main_category,@restaurant_type,@location,@gst,@contact_no,@latitude,@longitude,@min_item_price,@min_order_price,@order_type,@shipping_charge,@delivery_time,@delivery_format,@payment_types,@restaurant_image,@created,@delivery_hours,@reserve_table,@closing_day,@supported_payment_types,@ref_url,@gst_no,'-1')";
                                             OleDbCommand com = new OleDbCommand(InsertCommand, OConn);
+                                            com.Parameters.AddWithValue("@server_id", item.Restaurant.id);
                                             com.Parameters.AddWithValue("@tanent_id", item.Restaurant.tanent_id);
                                             com.Parameters.AddWithValue("@restaurant_name", item.Restaurant.restaurant_name);
                                             com.Parameters.AddWithValue("@main_category", item.Restaurant.main_category);
@@ -195,25 +228,30 @@ namespace BestariTerrace.Forms
                                             com.Parameters.AddWithValue("@reserve_table", item.Restaurant.reserve_table);
                                             com.Parameters.AddWithValue("@closing_day", item.Restaurant.closing_day);
                                             com.Parameters.AddWithValue("@supported_payment_types", item.Restaurant.supported_payment_types);
-                                            com.Parameters.AddWithValue("@ref_url", item.Restaurant.ref_url);
+                                            com.Parameters.AddWithValue("@ref_url", item.Restaurant.ref_url ?? "http://www.google.com");
                                             com.Parameters.AddWithValue("@gst_no", item.Restaurant.gst_no);
                                             var insertResult = com.ExecuteNonQuery();
                                         }
                                     }
                                     #endregion
+
+                                    #region Users
+
+                                    #endregion
                                 }
                                 else
                                 {
                                     Message = "Unable to get Data from server";
+                                    IsLoginSuccesful = false;
                                 }
                             }
                         }
                         else
                         {
                             Message = "Unable to get Data from server!!!";
-
+                            IsLoginSuccesful = false;
                         }
-                        IsLoginSuccesful = true;
+                      
                     }
                     else
                     {
@@ -225,9 +263,7 @@ namespace BestariTerrace.Forms
                 {
                     //Perform Full Sync
                 }
-
-
-                Message = "Sync Successfull";
+                
             }
             catch (Exception ex)
             {
@@ -236,7 +272,25 @@ namespace BestariTerrace.Forms
             }
             finally
             {
+                
+            }
+            IsDone = true;
+        }
+
+        private void backgroundWorker1_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            Up:
+            if (IsDone)
+            {
+                backgroundWorker1.CancelAsync();
+                backgroundWorker1.Dispose();
+                backgroundWorker1 = null;
+                GC.Collect();
                 this.Close();
+            }
+            else
+            {
+                goto Up;
             }
 
         }

@@ -21,8 +21,13 @@ namespace BestariTerrace
         public static ObservableCollection<App_Off_BAL.EmployeeCL> Employees = new ObservableCollection<App_Off_BAL.EmployeeCL>();
         public static ObservableCollection<App_Off_BAL.Employeesession> EmployeeSession = new ObservableCollection<App_Off_BAL.Employeesession>();
         public static ObservableCollection<App_Off_BAL.SessionuserCL> SessionUsers = new ObservableCollection<App_Off_BAL.SessionuserCL>();
-
+        public static ObservableCollection<App_Off_BAL.ProductCL> ServerProducts = new ObservableCollection<App_Off_BAL.ProductCL>();
+        public static ObservableCollection<App_Off_BAL.Restaurant> Restaurents = new ObservableCollection<App_Off_BAL.Restaurant>();
         public static string CurrentEmployeeID { get; set; }
+        public static string RestaurentID { get; set; }
+        public static string TenantID { get; set; }
+        public static string StoreLogo { get; set; }
+        public static double GSTValue { get; set; }
         #endregion
         //public static string PrinterName
         //{

@@ -147,6 +147,7 @@ namespace App_BAL
         public EmOrderType OrderType { get; set; }
         public BindingList<CartItemsCL> Items { get; set; }
         public bool IsOrderConfirmed { get; set; }
+        public DateTime OrderDate { get; set; }
         public EmOrderStatus OrderStatus
         {
             get
@@ -527,7 +528,7 @@ namespace App_BAL
         public int ProductID { get; set; }
         public string ProductName { get; set; }
         public double Price { get; set; }
-        public int CategoryID { get; set; }
+        public string ProductType { get; set; }
         public string ImageName { get; set; }
         public string ProductNumber { get; set; }
     }
@@ -783,7 +784,7 @@ namespace App_BAL
         public object supported_payment_types { get; set; }
         public object ref_url { get; set; }
         public string gst_no { get; set; }
-        public string address { get; set; }
+        public string address { get; set; }        
     }
 
     public class Product
@@ -914,6 +915,10 @@ namespace App_BAL
     {
         public bool status { get; set; }
         public Message message { get; set; }
+        public StoreDetails()
+        {
+            message = new Message();
+        }
     }
     #endregion
 }

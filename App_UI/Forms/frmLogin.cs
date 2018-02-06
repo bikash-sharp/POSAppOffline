@@ -12,6 +12,7 @@ using App_Wrapper;
 using System.Web.Script.Serialization;
 using CustomServerControls;
 using System.Data.OleDb;
+using System.Globalization;
 
 namespace BestariTerrace.Forms
 {
@@ -63,7 +64,7 @@ namespace BestariTerrace.Forms
                         using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
                         {
                             OConn.Open();
-                            OleDbDataAdapter da = new OleDbDataAdapter("SELECT * FROM employees WHERE username = '" + txtUserName.Text.Trim() + "'", OConn);
+                            OleDbDataAdapter da = new OleDbDataAdapter("SELECT * FROM employees", OConn);
                             da.Fill(ds);
                         }
                         //Get Data From DB
@@ -73,72 +74,90 @@ namespace BestariTerrace.Forms
                             //Fetch Details 
                             if (dt.Rows.Count > 0)
                             {
-                                App_Off_BAL.EmployeeCL emp = new App_Off_BAL.EmployeeCL();
-
-                                DataRow dtRow = dt.Rows[0];
-                                emp.id = dtRow["server_id"] + "";
-                                emp.username = dtRow["username"] + "";
-                                emp.password = dtRow["password"] + "";
-                                emp.position = dtRow["position"] + "";
-                                emp.restaurant_id = dtRow["restaurant_id"] + "";
-                                emp.tanent_id = dtRow["tanent_id"] + "";
-                                emp.access_type = dtRow["access_type"] + "";
-                                emp.acess_token = dtRow["access_token"] + "";
-                                emp.created = dtRow["created"] + "";
-                                emp.daily_cash_limit = dtRow["daily_cash_limit"] + "";
-                                emp.employee_name = dtRow["employee_name"] + "";
-
-                                dbPassword = emp.password;
-
-                                //Check for Password is Correct or Not
-                                if (!String.IsNullOrEmpty(dbPassword))
+                                for(int i=0;i< dt.Rows.Count;i++)
                                 {
-                                    if (dbPassword.Trim() != txtPassword.Text.Trim())
+                                    App_Off_BAL.EmployeeCL emp = new App_Off_BAL.EmployeeCL();
+
+                                    DataRow dtRow = dt.Rows[i];
+                                    emp.id = dtRow["server_id"] + "";
+                                    emp.username = dtRow["username"] + "";
+                                    emp.password = dtRow["password"] + "";
+                                    emp.position = dtRow["position"] + "";
+                                    emp.restaurant_id = dtRow["restaurant_id"] + "";
+                                    emp.tanent_id = dtRow["tanent_id"] + "";
+                                    emp.access_type = dtRow["access_type"] + "";
+                                    emp.acess_token = dtRow["access_token"] + "";
+                                    emp.created = dtRow["created"] + "";
+                                    emp.daily_cash_limit = dtRow["daily_cash_limit"] + "";
+                                    emp.employee_name = dtRow["employee_name"] + "";
+                                    //Add Into Global Employee List
+                                    if (!Program.Employees.Where(p => p.id == emp.id).Any())
+                                        Program.Employees.Add(emp);
+                                }
+
+                                var _EmpExist = Program.Employees.Where(p => p.username == txtUserName.Text.Trim()).FirstOrDefault();
+
+                                //Exist or not
+                                if (_EmpExist != null)
+                                {
+                                    if (_EmpExist.password != txtPassword.Text.Trim())
                                     {
                                         MessageBox.Show("Password do not match ?", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                     }
-                                    else if (dbPassword.Trim() == txtPassword.Text.Trim())
+                                    else if (_EmpExist.password == txtPassword.Text.Trim())
                                     {
                                         //Save the Current Employee Id
-                                        Program.CurrentEmployeeID = emp.id;
-                                        //Add Into Global Employee List
-                                        if (!Program.Employees.Where(p => p.id == emp.id).Any())
-                                            Program.Employees.Add(emp);
-
+                                        Program.CurrentEmployeeID = _EmpExist.id;
+                                        
                                         Program.IsLogined = true;
 
                                         //Create EmployeeSession
-                                        Program.SessionId = emp.tanent_id + "-" + DateTime.UtcNow.Date.ToString("ddMMyyyy");
+                                        Program.SessionId = _EmpExist.tanent_id + "-" + DateTime.UtcNow.Date.ToString("ddMMyyyy");
                                         //Check for Today Login Session
                                         bool IsSession = false;
                                         using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
                                         {
                                             OConn.Open();
-                                            OleDbCommand ComChkSesn = new OleDbCommand("Select session_id FROM employeesessions where session_id = @sessionid", OConn);
+                                            OleDbCommand ComChkSesn = new OleDbCommand("Select employeesessions.id FROM employeesessions where (employeesessions.session_id = @sessionid)", OConn);
                                             ComChkSesn.Parameters.AddWithValue("@sessionid", Program.SessionId);
                                             var SessionResult = ComChkSesn.ExecuteScalar()+"";
-                                            if(String.IsNullOrEmpty(SessionResult))
+                                            
+                                            String StartTime = DateTime.UtcNow.ToString("dd/MM/yyyy hh:mm:ss tt", new CultureInfo("en-SG"));
+                                            if (String.IsNullOrEmpty(SessionResult))
                                             {
                                                 //Create Session
-
                                                 OleDbCommand com = new OleDbCommand("insert into employeesessions(restaurent_id,session_id,session_start_time,session_end_time,session_status) values (@restaurent_id,@session_id,@session_start_time,@session_end_time,@session_status);", OConn);
-                                                com.Parameters.AddWithValue("@restaurent_id", emp.restaurant_id);
+                                                com.Parameters.AddWithValue("@restaurent_id", _EmpExist.restaurant_id);
                                                 com.Parameters.AddWithValue("@session_id", Program.SessionId);
-                                                com.Parameters.AddWithValue("@session_start_time", DateTime.UtcNow.Date.ToString("dd-MM-yyyy"));
+                                                com.Parameters.AddWithValue("@session_start_time", StartTime);
                                                 com.Parameters.AddWithValue("@session_end_time", "");
                                                 com.Parameters.AddWithValue("@session_status", "Pending");
                                                 var InsertResult = com.ExecuteNonQuery();
                                                 com = new OleDbCommand("Select @@Identity;", OConn);
                                                 string SessionId = com.ExecuteScalar() + "";
-
-                                                OleDbCommand sCom = new OleDbCommand("insert into sessionusers(session_id,employee_id,tanent_id,restaurent_id,emp_loggedin_time,emp_status) values(@session_id,@employee_id,@tanent_id,@restaurent_id,@emp_loggedin_time,'LoggedIn')", OConn);
-                                                sCom.Parameters.AddWithValue("@session_id", SessionId);
-                                                sCom.Parameters.AddWithValue("@employee_id", emp.id);
-                                                sCom.Parameters.AddWithValue("@tanent_id", emp.tanent_id);
-                                                sCom.Parameters.AddWithValue("@restaurent_id", emp.restaurant_id);
-                                                sCom.Parameters.AddWithValue("@emp_loggedin_time", DateTime.UtcNow.ToString());
-                                                var result = sCom.ExecuteNonQuery();
+                                                Program.SessionId = SessionId;
                                             }
+                                            else
+                                            {
+                                                Program.SessionId = SessionResult;
+                                            }
+                                            if(!String.IsNullOrEmpty(Program.SessionId))
+                                            {
+                                                OleDbCommand ComChkEmp = new OleDbCommand("Select sessionusers.id FROM sessionusers where ((sessionusers.session_id = "+Program.SessionId+") AND (sessionusers.employee_id = "+Program.CurrentEmployeeID+")) ", OConn);
+                                                var EmpSessionChk = ComChkEmp.ExecuteScalar() + "";
+
+                                                if (String.IsNullOrEmpty(EmpSessionChk))
+                                                {
+                                                    OleDbCommand sCom = new OleDbCommand("insert into sessionusers(session_id,employee_id,tanent_id,restaurent_id,emp_loggedin_time,emp_status) values(@session_id,@employee_id,@tanent_id,@restaurent_id,@emp_loggedin_time,'LoggedIn')", OConn);
+                                                    sCom.Parameters.AddWithValue("@session_id", Program.SessionId);
+                                                    sCom.Parameters.AddWithValue("@employee_id", _EmpExist.id);
+                                                    sCom.Parameters.AddWithValue("@tanent_id", _EmpExist.tanent_id);
+                                                    sCom.Parameters.AddWithValue("@restaurent_id", _EmpExist.restaurant_id);
+                                                    sCom.Parameters.AddWithValue("@emp_loggedin_time", StartTime);
+                                                    var result = sCom.ExecuteNonQuery();
+                                                }
+                                            }
+                                            
                                         }
 
                                         //Fetch the Outlet Type
@@ -147,7 +166,7 @@ namespace BestariTerrace.Forms
                                             OConn.Open();
                                             string SelectCommand = "Select * from restaurants where Server_id=@restaurent_id";
                                             OleDbCommand com = new OleDbCommand(SelectCommand, OConn);
-                                            com.Parameters.AddWithValue("@restaurent_id", emp.restaurant_id);
+                                            com.Parameters.AddWithValue("@restaurent_id", _EmpExist.restaurant_id);
                                             OleDbDataAdapter da = new OleDbDataAdapter(com);
                                             DataSet dsRestaurent = new DataSet("Restaurent");
                                             da.Fill(dsRestaurent);
@@ -158,7 +177,7 @@ namespace BestariTerrace.Forms
                                                 if (dtRestaurent.Rows.Count > 0)
                                                 {
                                                     DataRow CurrentRow = dtRestaurent.Rows[0];
-                                                    var IsRestaurentExist = Program.Restaurents.Where(p => p.id == emp.restaurant_id).Any();
+                                                    var IsRestaurentExist = Program.Restaurents.Where(p => p.id == _EmpExist.restaurant_id).Any();
                                                     if(!IsRestaurentExist)
                                                     {
                                                         App_Off_BAL.Restaurant restaurent = new App_Off_BAL.Restaurant();
@@ -195,10 +214,10 @@ namespace BestariTerrace.Forms
                                             }
                                         }
 
-                                        Program.RestaurentID = emp.restaurant_id;
-                                        Program.TenantID = Program.Restaurents.Where(p => p.id == emp.restaurant_id).Select(p => p.tanent_id).FirstOrDefault() + "";
-                                        Program.OutletType = Program.Restaurents.Where(p => p.id == emp.restaurant_id).Select(p => p.restaurant_type).FirstOrDefault() + "";
-                                        Program.StoreLogo = Program.Restaurents.Where(p => p.id == emp.restaurant_id).Select(p => p.restaurant_image).FirstOrDefault() + "";
+                                        Program.RestaurentID = _EmpExist.restaurant_id;
+                                        Program.TenantID = Program.Restaurents.Where(p => p.id == _EmpExist.restaurant_id).Select(p => p.tanent_id).FirstOrDefault() + "";
+                                        Program.OutletType = Program.Restaurents.Where(p => p.id == _EmpExist.restaurant_id).Select(p => p.restaurant_type).FirstOrDefault() + "";
+                                        Program.StoreLogo = Program.Restaurents.Where(p => p.id == _EmpExist.restaurant_id).Select(p => p.restaurant_image).FirstOrDefault() + "";
                                         //Program.OutletType = result.outlet_Type;//Restraunt Table
 
                                         //Token is not required

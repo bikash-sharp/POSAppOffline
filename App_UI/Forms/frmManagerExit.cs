@@ -4,7 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Data.OleDb;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -39,21 +41,34 @@ namespace BestariTerrace.Forms
                 {
                     this.rectangleShape2.BorderColor = Color.FromArgb(225, 225, 225);
                     this.rectangleShape3.BorderColor = Color.FromArgb(225, 225, 225);
-
-                    string LogoutSessionUrl = Program.BaseUrl + "/logoutSession?username=" + txtUserName.Text.Trim() + "&password=" + txtPassword.Text.Trim() + "&session_id=" + Program.SessionId + "&acess_token=" + Program.Token;
-                    var GetDetails = DataProviderWrapper.Instance.GetData(LogoutSessionUrl, Verbs.GET, "");
-                    JavaScriptSerializer serializer = new JavaScriptSerializer();
-                    MessageCL result = serializer.Deserialize<MessageCL>(GetDetails);
-                    if(result.status)
+                    
+                    var _EmpExist = Program.Employees.Where(p => p.username == txtUserName.Text.Trim()).FirstOrDefault();
+                    if(_EmpExist != null)
                     {
-                        IsOK = true;
-                        this.Close();
+                        if(_EmpExist.position != "manager")
+                        {
+                            IsOK = false;
+                            MessageBox.Show("Not a Manager Login ?", "Denied", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+                            return;
+                        }
+                        else if(_EmpExist.password != txtPassword.Text.Trim())
+                        {
+                            IsOK = false;
+                            MessageBox.Show("Wrong Username/Password ?", "Denied", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            return;
+                        }
+                        else
+                        {
+                            IsOK = true;
+                            this.Close();
+                        }
                     }
                     else
                     {
                         IsOK = false;
                         MessageBox.Show("Wrong Username/Password ?", "Denied", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
+                    }                                    
+                    
                 }
             }
             catch(Exception ex)

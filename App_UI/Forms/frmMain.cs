@@ -1351,26 +1351,46 @@ namespace BestariTerrace.Forms
 
         private void btnlogout_Click(object sender, EventArgs e)
         {
-            DialogResult msgResult = MessageBox.Show("Do you want to Logout Application ?", "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
-            if (msgResult == DialogResult.Yes)
+            try
             {
-                string URL = Program.BaseUrl;
-                string LogoutURL = URL + "/logout?acess_token=" + Program.Token + "&session_id=" + Program.SessionId;
-                var GetStatus = DataProviderWrapper.Instance.GetData(LogoutURL, Verbs.GET, "");
-
-                JavaScriptSerializer serializer = new JavaScriptSerializer();
-                var result = serializer.Deserialize<logoutCL>(GetStatus);
-                Program.IsLogined = false;
-                Up:
-                frmLogin obj = new frmLogin();
-                obj.IsMain = true;
-                obj.ShowDialog();
-
-                if (!Program.IsLogined)
+                DialogResult msgResult = MessageBox.Show("Do you want to Logout Application ?", "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                if (msgResult == DialogResult.Yes)
                 {
-                    goto Up;
+                    int result = 0;
+                    using (OleDbConnection OConn = new OleDbConnection(Program.ConnectionStr))
+                    {
+                        OConn.Open();
+                        string UpdateCommand = "Update sessionusers Set emp_loggedout_time ='@logouttime' where ((session_id = "+Program.SessionId+") AND (employee_id = "+Program.CurrentEmployeeID+"))";
+                        OleDbCommand com = new OleDbCommand(UpdateCommand, OConn);
+                        com.Parameters.AddWithValue("@logouttime", DateTime.UtcNow.ToString("dd/MM/yyyy hh:mm:ss tt", new CultureInfo("en-SG")));
+                        result = com.ExecuteNonQuery();
+                    }
+                    if(result > 0)
+                    {
+                        Program.IsLogined = false;
+                    }
+                    else
+                    {
+                        MessageBox.Show("Unable to Logout the User", "Logout", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+                    Up:
+                    frmLogin obj = new frmLogin();
+                    obj.IsMain = true;
+                    obj.ShowDialog();
+
+                    if (!Program.IsLogined)
+                    {
+                        goto Up;
+                    }
                 }
             }
+            catch(Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Logout", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            
         }
 
         private void btnCounterSale_Click(object sender, EventArgs e)
